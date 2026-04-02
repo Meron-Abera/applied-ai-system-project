@@ -17,18 +17,33 @@ Replace this paragraph with your own summary of what your version does.
 
 ## How The System Works
 
-Explain your design in plain language.
+TThis project builds a simple, content-based music recommender that follows the same two-step approach used in real streaming platforms: first generating a set of candidate songs, and then ranking them for the user. While real systems use a mix of signals like user behavior, embeddings, and session data, this version focuses on being easy to understand and reproducible.
 
-Some prompts to answer:
+Instead of collaborative filtering, I mainly use content-based features like genre, mood, and numeric “vibe” attributes (energy, valence, etc.). This makes it easier to explain why a song is recommended, while still allowing some diversity through adjustable weights.
 
-- What features does each `Song` use in your system
-  - For example: genre, mood, energy, tempo
-- What information does your `UserProfile` store
-- How does your `Recommender` compute a score for each song
-- How do you choose which songs to recommend
+For the data, each song includes fields like id, title, artist, genre, mood, and numeric features such as energy, tempo, valence, danceability, and acousticness. The user profile includes preferences like favorite genre, favorite mood, a target energy level, and whether they prefer acoustic songs.
 
-You can include a simple diagram or bullet list if helpful.
+For scoring, each song is compared to the user’s preferences. Numeric features are scored based on how close they are to the user’s target values using a smooth function, so closer matches get higher scores. On top of that, I add bonuses if the song matches the user’s preferred genre or mood.
 
+The final score is a weighted combination of all these factors (for example, numeric features might count for around 60%, genre 25%, and mood 15%). After scoring, songs are ranked, and I apply simple rules like limiting repeated artists or adding some exploration to keep the recommendations varied.
+
+### Song fields 
+id (int)
+title (str)
+artist (str)
+genre (str) — categorical (e.g., "pop", "lofi")
+mood (str) — categorical (e.g., "chill", "happy", "intense")
+energy (float, 0–1) — perceived intensity
+tempo_bpm (float) — tempo in beats per minute
+valence (float, 0–1) — musical positivity/happy vs sad
+danceability (float, 0–1) — suitability for dancing / groove
+acousticness (float, 0–1) — acoustic vs electronic/produced
+
+### UserProfile fields 
+favorite_genre (str)
+favorite_mood (str)
+target_energy (float, 0–1)
+likes_acoustic (bool)
 ---
 
 ## Getting Started
