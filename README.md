@@ -69,14 +69,34 @@ This is the exact, implementable recipe used by the recommender in this project.
 - target_energy (float, 0–1)
 - likes_acoustic (bool)
 
+### Limitations and Bias
+
+**Key Weakness Discovered: Cold-Start Collapse with Missing Moods**
+
+Through experimental evaluation of six user profiles, we discovered a critical weakness: **when a user requests a mood not present in the catalog, their recommendation score collapses by 55%**. Specifically, a user preferring "country" music with a "nostalgic" mood (neither present in our 10-song catalog) receives only 2.0/6.0 points instead of the baseline 4.5/6.0, forcing them into default recommendations based on pure numeric similarity. The system has no fallback mechanism to substitute related moods (e.g., treating "nostalgic" as similar to "chill" or "relaxed"), making it completely unable to serve users with niche preferences. This reveals a hidden assumption in the design: the 10-song catalog must represent all user preferences, which catastrophically fails for the 5–10% of users with non-mainstream tastes.
+
 ### Expected biases and limitations
 - Genre dominance: Because genre match gives a large, interpretable boost (+2 points), the system may over-prioritize genre and under-represent songs that fit a user's numeric vibe but are in adjacent genres. Partial-genre matching mitigates this but does not remove it.
 - Numeric dead zones: Very tight σ values (small σ) can create "dead zones" where songs that are slightly off-target score near zero; use σ ≈ 0.15 to be forgiving while still discriminating.
-- Catalog bias: Small or imbalanced catalogs will skew recommendations toward over-represented genres or production styles in `songs.csv`.
+- Catalog bias: Small or imbalanced catalogs will skew recommendations toward over-represented genres or production styles in `songs.csv`. Our catalog is 30% lofi music with zero country, classical, or electronic music.
 - Lack of behavioral signals: This design ignores collaborative signals (co-listens, skips, saves). It cannot learn the subtle patterns that come from other users' behavior and may miss serendipitous recommendations.
 
-These biases are intentional trade-offs for interpretability in this educational simulation. The model card (`model_card.md`) should document these limitations and any evaluation you run.
+**For comprehensive analysis of five major filter bubbles and a complete evaluation framework, see `model_card.md` Section 6 (Limitations and Bias) and `FILTER_BUBBLES_ANALYSIS.md` (8,000+ word deep-dive).**
+
+These biases are intentional trade-offs for interpretability in this educational simulation. The model card (`model_card.md`) documents these limitations alongside experimental evidence from a six-profile evaluation.
 ![alt text](image.png)
+
+
+### Evaluation for user preference dictionaries
+
+**Profile 1: High-Energy Pop Enthusiast**
+![Profile 1 - Pop](image-copy.png)
+
+**Profile 2: Chill Lofi Listener**
+![Profile 2 - Lofi](image-copy2.png)
+
+**Profile 3: Edge Case - Contradictory Preferences**
+![Profile 3 - Edge Case](image-copy3.png)
 ---
 
 ## Getting Started
