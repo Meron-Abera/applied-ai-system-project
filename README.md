@@ -76,6 +76,7 @@ This is the exact, implementable recipe used by the recommender in this project.
 - Lack of behavioral signals: This design ignores collaborative signals (co-listens, skips, saves). It cannot learn the subtle patterns that come from other users' behavior and may miss serendipitous recommendations.
 
 These biases are intentional trade-offs for interpretability in this educational simulation. The model card (`model_card.md`) should document these limitations and any evaluation you run.
+![alt text](image.png)
 ---
 
 ## Getting Started
