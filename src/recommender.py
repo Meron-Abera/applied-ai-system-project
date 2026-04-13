@@ -70,118 +70,104 @@ def partial_genre_match(song_genre: str, user_favorite_genre: str) -> float:
     return 0.0
 
 
-def score_song(song: Song, user: UserProfile, catalog_stats: Dict = None) -> Tuple[float, Dict]:
+def score_song(song: Song, user: UserProfile, catalog_stats: Dict = None) -> Tuple[float, List[str]]:
     """
-    Compute a final recommendation score for a song given a user profile.
-    Returns (final_score, component_dict) where component_dict shows breakdown.
+    Compute a point-based recommendation score for a song given a user profile.
+    Returns (total_score: float, reasons: List[str]) for transparency.
     
-    Architecture (per Claude's suggestions):
-    - Gaussian similarity for numeric features (energy, valence, tempo, danceability, acousticness)
-    - Partial genre matching (1.0 exact, 0.5 partial, 0.0 none)
-    - Exact mood matching (1.0 match, 0.0 no match)
-    - Acousticness influenced by user's likes_acoustic preference
+    Scoring breakdown:
+    - Genre match: +2.0 (exact) or +1.0 (partial)
+    - Mood match: +1.0 (exact)
+    - Numeric features: weighted Gaussian closeness on energy, valence, tempo, danceability, acousticness
+    - Maximum possible raw score: 6.0 (2 + 1 + 3 numeric)
     """
     if catalog_stats is None:
         catalog_stats = {"tempo_min": 60, "tempo_max": 180}
     
-    tempo_min = catalog_stats.get("tempo_min", 60)
-    tempo_max = catalog_stats.get("tempo_max", 180)
+    reasons = []
+    total_points = 0.0
     
-    # Widened sigma per Claude: 0.10 -> 0.15
+    # ===== 1. Genre Match (categorical) =====
+    genre_score = partial_genre_match(song.genre, user.favorite_genre)
+    if genre_score == 1.0:
+        total_points += 2.0
+        reasons.append(f"genre match ({song.genre}) (+2.0)")
+    elif genre_score == 0.5:
+        total_points += 1.0
+        reasons.append(f"genre match ({song.genre}) (+1.0)")
+    
+    # ===== 2. Mood Match (categorical) =====
+    if song.mood.lower() == user.favorite_mood.lower():
+        total_points += 1.0
+        reasons.append(f"mood match ({song.mood}) (+1.0)")
+    
+    # ===== 3. Numeric Feature Scoring (Gaussian closeness) =====
+    # Sigmas control tolerance; widened per Claude's feedback
     sigma_energy = 0.15
     sigma_valence = 0.15
     sigma_tempo = 0.15
     sigma_danceability = 0.15
-    sigma_acousticness = 0.20  # Include acousticness with its own sigma
+    sigma_acousticness = 0.20
     
-    # Numeric feature similarities
+    # Feature max points (sum to 3.0 total numeric)
+    energy_max = 1.0
+    valence_max = 0.7
+    tempo_max = 0.5
+    danceability_max = 0.5
+    acousticness_max = 0.3
+    
+    # Energy
     s_energy = gaussian_similarity(song.energy, user.target_energy, sigma_energy)
+    energy_points = energy_max * s_energy
+    total_points += energy_points
+    if energy_points > 0.1:
+        reasons.append(f"energy similarity (+{energy_points:.2f})")
+    
+    # Valence
     s_valence = gaussian_similarity(song.valence, user.target_valence, sigma_valence)
+    valence_points = valence_max * s_valence
+    total_points += valence_points
+    if valence_points > 0.1:
+        reasons.append(f"valence similarity (+{valence_points:.2f})")
     
-    tempo_norm = normalize_tempo(song.tempo_bpm, tempo_min, tempo_max)
-    target_tempo_norm = normalize_tempo(user.target_tempo_bpm, tempo_min, tempo_max)
+    # Tempo (normalized first)
+    tempo_min = catalog_stats.get("tempo_min", 60)
+    tempo_max_cat = catalog_stats.get("tempo_max", 180)
+    tempo_norm = normalize_tempo(song.tempo_bpm, tempo_min, tempo_max_cat)
+    target_tempo_norm = normalize_tempo(user.target_tempo_bpm, tempo_min, tempo_max_cat)
     s_tempo = gaussian_similarity(tempo_norm, target_tempo_norm, sigma_tempo)
+    tempo_points = tempo_max * s_tempo
+    total_points += tempo_points
+    if tempo_points > 0.1:
+        reasons.append(f"tempo similarity (+{tempo_points:.2f})")
     
-    s_danceability = gaussian_similarity(song.danceability, 0.65, sigma_danceability)  # Neutral target
+    # Danceability
+    s_danceability = gaussian_similarity(song.danceability, 0.65, sigma_danceability)
+    danceability_points = danceability_max * s_danceability
+    total_points += danceability_points
+    if danceability_points > 0.1:
+        reasons.append(f"danceability similarity (+{danceability_points:.2f})")
     
-    # Acousticness: if user likes_acoustic, prefer high acousticness (close to 1.0)
-    # If not, prefer low acousticness (close to 0.0)
+    # Acousticness (influenced by user preference)
     acoustic_target = 0.7 if user.likes_acoustic else 0.1
     s_acousticness = gaussian_similarity(song.acousticness, acoustic_target, sigma_acousticness)
+    acousticness_points = acousticness_max * s_acousticness
+    total_points += acousticness_points
+    if acousticness_points > 0.1:
+        reasons.append(f"acousticness similarity (+{acousticness_points:.2f})")
     
-    # Aggregate numeric score (equal weights)
-    numeric_weights = {
-        "energy": 0.25,
-        "valence": 0.25,
-        "tempo": 0.20,
-        "danceability": 0.15,
-        "acousticness": 0.15,
-    }
-    numeric_score = (
-        numeric_weights["energy"] * s_energy +
-        numeric_weights["valence"] * s_valence +
-        numeric_weights["tempo"] * s_tempo +
-        numeric_weights["danceability"] * s_danceability +
-        numeric_weights["acousticness"] * s_acousticness
-    )
-    
-    # Categorical matches
-    genre_match = partial_genre_match(song.genre, user.favorite_genre)
-    mood_match = 1.0 if song.mood.lower() == user.favorite_mood.lower() else 0.0
-    
-    # Final score (top-level weights per original design)
-    w_numeric = 0.60
-    w_genre = 0.25
-    w_mood = 0.15
-    
-    final_score = (
-        w_numeric * numeric_score +
-        w_genre * genre_match +
-        w_mood * mood_match
-    )
-    
-    components = {
-        "energy": s_energy,
-        "valence": s_valence,
-        "tempo": s_tempo,
-        "danceability": s_danceability,
-        "acousticness": s_acousticness,
-        "numeric_score": numeric_score,
-        "genre_match": genre_match,
-        "mood_match": mood_match,
-        "final_score": final_score,
-    }
-    
-    return final_score, components
-
-
-def build_explanation(song: Song, components: Dict, user: UserProfile) -> str:
-    """Generate a human-readable explanation for why a song was recommended."""
-    reasons = []
-    
-    if components["genre_match"] > 0.5:
-        if components["genre_match"] == 1.0:
-            reasons.append(f"matches your favorite genre ({song.genre})")
-        else:
-            reasons.append(f"related to your favorite genre ({song.genre})")
-    
-    if components["mood_match"] > 0.5:
-        reasons.append(f"fits your mood preference ({song.mood})")
-    
-    # Find the strongest numeric contributor
-    numeric_components = {
-        "energy": components["energy"],
-        "valence": components["valence"],
-        "tempo": components["tempo"],
-    }
-    strongest_numeric = max(numeric_components.items(), key=lambda x: x[1])
-    if strongest_numeric[1] > 0.5:
-        reasons.append(f"strong {strongest_numeric[0]} match ({strongest_numeric[1]:.2f})")
-    
+    # If no strong reasons, add a generic catch-all
     if not reasons:
-        reasons.append("interesting match in your vibe")
+        reasons.append("general match")
     
-    return "Recommended because: " + ", and ".join(reasons) + "."
+    return total_points, reasons
+
+
+def build_explanation(song: Song, reasons: List[str], user: UserProfile = None) -> str:
+    """Generate a human-readable explanation from the reasons list."""
+    if not reasons:
+        return "Recommended match."
+    return "Recommended because: " + ", ".join(reasons) + "."
 
 
 class Recommender:
@@ -212,8 +198,8 @@ class Recommender:
 
     def explain_recommendation(self, user: UserProfile, song: Song) -> str:
         """Generate an explanation for why a song was recommended to a user."""
-        _, components = score_song(song, user, self.catalog_stats)
-        return build_explanation(song, components, user)
+        _, reasons = score_song(song, user, self.catalog_stats)
+        return build_explanation(song, reasons, user)
 
 
 def load_songs(csv_path: str) -> List[Song]:
@@ -279,8 +265,8 @@ def recommend_songs(user_prefs: Dict, songs: List[Song], k: int = 5) -> List[Tup
     # Score all songs
     scored = []
     for song in songs:
-        score, components = score_song(song, user, catalog_stats)
-        explanation = build_explanation(song, components, user)
+        score, reasons = score_song(song, user, catalog_stats)
+        explanation = build_explanation(song, reasons, user)
         scored.append((song, score, explanation))
     
     # Sort by score descending

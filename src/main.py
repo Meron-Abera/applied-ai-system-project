@@ -14,7 +14,7 @@ from recommender import load_songs, recommend_songs
 
 def main() -> None:
     # Load all songs from CSV
-    songs = load_songs("data/songs.csv")
+    songs = load_songs("../data/songs.csv")
     
     if not songs:
         print("No songs loaded. Exiting.")
@@ -35,20 +35,20 @@ def main() -> None:
 
     recommendations = recommend_songs(user_prefs, songs, k=5)
 
-    print("\n" + "="*60)
+    print("\n" + "="*80)
     print("🎵 Music Recommender Simulation - Top 5 Recommendations")
-    print("="*60)
-    print(f"User Profile: Pop enthusiast, happy mood, moderate-high energy")
-    print(f"Target Energy: {user_prefs['target_energy']}, Valence: {user_prefs['target_valence']}")
-    print("="*60 + "\n")
+    print("="*80)
+    print(f"User Profile: {user_prefs['favorite_genre'].title()} enthusiast, {user_prefs['favorite_mood']} mood")
+    print(f"Target Energy: {user_prefs['target_energy']:.2f} | Valence: {user_prefs['target_valence']:.2f} | Tempo: {user_prefs['target_tempo_bpm']:.0f} bpm")
+    print("="*80 + "\n")
     
     for i, rec in enumerate(recommendations, 1):
         song, score, explanation = rec
-        print(f"{i}. {song.title} - {song.artist}")
-        print(f"   Genre: {song.genre} | Mood: {song.mood}")
-        print(f"   Energy: {song.energy:.2f} | Valence: {song.valence:.2f} | Tempo: {song.tempo_bpm:.0f} bpm")
-        print(f"   Score: {score:.3f}")
-        print(f"   {explanation}")
+        print(f"#{i}  {song.title} by {song.artist}")
+        print(f"    Genre: {song.genre:<12} | Mood: {song.mood:<10} | Score: {score:.2f}/6.0")
+        print(f"    Song attributes: Energy {song.energy:.2f} | Valence {song.valence:.2f} | Tempo {song.tempo_bpm:.0f} bpm")
+        print(f"    Danceability {song.danceability:.2f} | Acousticness {song.acousticness:.2f}")
+        print(f"    ✓ {explanation}")
         print()
 
 
