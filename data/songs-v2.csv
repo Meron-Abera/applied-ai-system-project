@@ -1,0 +1,9 @@
+id,title,artist,genre,mood,energy,tempo_bpm,valence,danceability,acousticness
+11,Moonlight Nocturne,Aria Ensemble,classical,melancholic,0.15,60,0.20,0.05,0.95
+12,Highway Hymn,Copper Road,country,nostalgic,0.55,100,0.70,0.60,0.65
+13,Backyard Breeze,Rhythm & Roots,reggae,laidback,0.58,75,0.72,0.68,0.40
+14,Night Market,Syntheos,electronic,party,0.88,128,0.80,0.90,0.05
+15,Heartstrings,Lila Moss,folk,romantic,0.45,88,0.78,0.52,0.88
+16,City Blues,Blue Harbor,blues,soulful,0.50,92,0.46,0.55,0.70
+17,Iron Will,Forge Anthem,metal,aggressive,0.95,170,0.25,0.40,0.02
+18,Smooth Moves,Velvet Tides,R&B,sensual,0.66,96,0.74,0.78,0.30

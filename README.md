@@ -16,34 +16,66 @@ Replace this paragraph with your own summary of what your version does.
 ---
 
 ## How The System Works
+TThis project builds a simple, content-based music recommender that follows the two-step approach used by production systems: (1) generate candidates, and (2) rank and re-rank a slate of results for the user. The goal here is clarity and reproducibility: the system uses interpretable song attributes (genre, mood, energy, etc.) and a math-based scoring rule so you can see exactly why a song was recommended.
 
-TThis project builds a simple, content-based music recommender that follows the same two-step approach used in real streaming platforms: first generating a set of candidate songs, and then ranking them for the user. While real systems use a mix of signals like user behavior, embeddings, and session data, this version focuses on being easy to understand and reproducible.
+Core idea: score each song against a user's taste profile using a mix of categorical boosts (genre/mood) and numeric "vibe" similarity (energy, valence, tempo, danceability, acousticness). The numeric similarity is computed with smooth Gaussian kernels so the system rewards closeness to a user's target, not just larger or smaller values.
 
-Instead of collaborative filtering, I mainly use content-based features like genre, mood, and numeric “vibe” attributes (energy, valence, etc.). This makes it easier to explain why a song is recommended, while still allowing some diversity through adjustable weights.
+### Finalized Algorithm Recipe (point-based)
+This is the exact, implementable recipe used by the recommender in this project.
 
-For the data, each song includes fields like id, title, artist, genre, mood, and numeric features such as energy, tempo, valence, danceability, and acousticness. The user profile includes preferences like favorite genre, favorite mood, a target energy level, and whether they prefer acoustic songs.
+1) Preprocess
+   - Load `songs.csv` into memory and compute `tempo_norm` for each song using catalog min/max (clip to [0,1]).
+   - Clip numeric features (energy, valence, danceability, acousticness) to [0,1].
 
-For scoring, each song is compared to the user’s preferences. Numeric features are scored based on how close they are to the user’s target values using a smooth function, so closer matches get higher scores. On top of that, I add bonuses if the song matches the user’s preferred genre or mood.
+2) Points and caps
+   - Categorical caps: genre = 2.0 points (exact match), mood = 1.0 point (exact match). Partial genre match (e.g., "indie pop" vs "pop") can get 1.0 as a soft match.
+   - Numeric block total = 3.0 points distributed across features: energy (1.0), valence (0.7), tempo_norm (0.5), danceability (0.5), acousticness (0.3).
+   - Maximum raw points per song = 6.0 (2 + 1 + 3).
 
-The final score is a weighted combination of all these factors (for example, numeric features might count for around 60%, genre 25%, and mood 15%). After scoring, songs are ranked, and I apply simple rules like limiting repeated artists or adding some exploration to keep the recommendations varied.
+3) Per-feature numeric scoring (Gaussian closeness)
+   - Use G(x, μ, σ) = exp(-0.5 * ((x - μ)/σ)^2), which returns (0,1].
+   - Default σ values: sigma_energy = 0.15, sigma_valence = 0.15, sigma_tempo = 0.12 (applied to normalized tempo), sigma_dance = 0.10, sigma_acoustic = 0.20.
+   - Feature points: feature_points_f = feature_max_f * G_f(song_value, user_target, σ_f).
 
-### Song fields 
-id (int)
-title (str)
-artist (str)
-genre (str) — categorical (e.g., "pop", "lofi")
-mood (str) — categorical (e.g., "chill", "happy", "intense")
-energy (float, 0–1) — perceived intensity
-tempo_bpm (float) — tempo in beats per minute
-valence (float, 0–1) — musical positivity/happy vs sad
-danceability (float, 0–1) — suitability for dancing / groove
-acousticness (float, 0–1) — acoustic vs electronic/produced
+4) Categorical points
+   - genre_points: +2.0 if exact match, +1.0 for partial match (substring or token overlap), else 0.
+   - mood_points: +1.0 if exact match, else 0.
 
-### UserProfile fields 
-favorite_genre (str)
-favorite_mood (str)
-target_energy (float, 0–1)
-likes_acoustic (bool)
+5) Aggregate and normalize
+   - raw_points = numeric_points + genre_points + mood_points
+   - normalized_score = raw_points / 6.0
+
+6) Ranking and slate construction
+   - Score every candidate (loop over songs or pre-filtered candidates).
+   - Sort by raw_points (descending).
+   - Apply list-level rules: artist cap (e.g., max 2 songs per artist), exploration slots, and business filters (region/licensing).
+   - Return Top-K with short explanations built from the top contributors (e.g., "Matches your favorite genre (pop) and target energy").
+
+### Song fields
+- id (int)
+- title (str)
+- artist (str)
+- genre (str) — categorical (e.g., "pop", "lofi")
+- mood (str) — categorical (e.g., "chill", "happy", "intense")
+- energy (float, 0–1) — perceived intensity
+- tempo_bpm (float) — tempo in beats per minute
+- valence (float, 0–1) — musical positivity/happy vs sad
+- danceability (float, 0–1) — suitability for dancing / groove
+- acousticness (float, 0–1) — acoustic vs electronic/produced
+
+### UserProfile fields
+- favorite_genre (str)
+- favorite_mood (str)
+- target_energy (float, 0–1)
+- likes_acoustic (bool)
+
+### Expected biases and limitations
+- Genre dominance: Because genre match gives a large, interpretable boost (+2 points), the system may over-prioritize genre and under-represent songs that fit a user's numeric vibe but are in adjacent genres. Partial-genre matching mitigates this but does not remove it.
+- Numeric dead zones: Very tight σ values (small σ) can create "dead zones" where songs that are slightly off-target score near zero; use σ ≈ 0.15 to be forgiving while still discriminating.
+- Catalog bias: Small or imbalanced catalogs will skew recommendations toward over-represented genres or production styles in `songs.csv`.
+- Lack of behavioral signals: This design ignores collaborative signals (co-listens, skips, saves). It cannot learn the subtle patterns that come from other users' behavior and may miss serendipitous recommendations.
+
+These biases are intentional trade-offs for interpretability in this educational simulation. The model card (`model_card.md`) should document these limitations and any evaluation you run.
 ---
 
 ## Getting Started
