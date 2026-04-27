@@ -10,56 +10,6 @@ The original project from Modules 1-3 was a Python-based music recommender. Its 
 
 The system is designed with a clear separation of concerns, from the user interface to the core AI logic.
 
-```mermaid
-graph TD
-    subgraph "Input Layer"
-        UserInput[👩‍💻 User Preferences <br> (Genre, Mood, etc.)]
-    end
-
-    subgraph "Application Layer (Streamlit UI)"
-        UI[🖼️ MoodBeam Web App]
-    end
-
-    subgraph "Core Logic (src/recommender.py)"
-        Recommender[🧠 Recommender System]
-        SemanticFallback[🔄 Semantic Fallback Engine]
-        Scoring[🧮 Scoring Engine]
-    end
-
-    subgraph "Data & Models"
-        SongCatalog[🎵 Song Catalog <br> (songs-v2.csv)]
-        SentenceTransformer[🤖 Sentence Transformer Model]
-    end
-
-    subgraph "Output & Evaluation"
-        Output[🎶 Top Recommendations & Explanations]
-        HumanReview[🧐 Human Review]
-        Tester[🧪 Consistency Tester <br> (scripts/test_consistency.py)]
-    end
-
-    %% Data Flow
-    UserInput --> UI
-    UI --> Recommender
-    Recommender --> SemanticFallback
-    SemanticFallback -- "Query" --> SentenceTransformer
-    SentenceTransformer -- "Similarity" --> SemanticFallback
-    SemanticFallback -- "Fallback Terms" --> Recommender
-    Recommender --> Scoring
-    Scoring -- "Reads Songs" --> SongCatalog
-    Scoring -- "Ranked Songs" --> Recommender
-    Recommender --> Output
-    Output --> HumanReview
-
-    %% Testing Flow
-    Tester -- "Runs Checks On" --> Recommender
-    Recommender -- "Uses" --> SongCatalog
-
-    %% Style
-    style UserInput fill:#f9f,stroke:#333,stroke-width:2px
-    style HumanReview fill:#f9f,stroke:#333,stroke-width:2px
-    style Tester fill:#ccf,stroke:#333,stroke-width:2px
-```
-
 1.  **Input**: A user provides their music preferences (e.g., favorite genre "Rap") via the Streamlit web interface.
 2.  **Processing**: The `Recommender` receives the input. It checks if "Rap" exists in the `Song Catalog`. Since it doesn't, the `Semantic Fallback Engine` uses a `Sentence Transformer` model to find the most similar genre in the catalog (e.g., "reggae"). The `Scoring Engine` then ranks songs based on this adjusted preference.
 3.  **Output**: The UI displays the top-ranked songs with a clear explanation of *why* they were recommended, including a note about the semantic fallback that was applied.
