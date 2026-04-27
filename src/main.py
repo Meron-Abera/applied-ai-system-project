@@ -7,6 +7,7 @@ to showcase how different preferences affect recommendations.
 
 import os
 import sys
+import logging
 
 # Add src directory to path for imports
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
@@ -164,6 +165,9 @@ def print_summary_statistics(profiles_data: list) -> None:
 
 
 def main() -> None:
+    # Configure logging for the application (guardrails & observability)
+    logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s")
+    logger = logging.getLogger(__name__)
     # Load all songs from CSV
     project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
     csv_path = os.path.join(project_root, "data", "songs.csv")
@@ -242,7 +246,31 @@ def main() -> None:
     
     # Test each profile
     for profile_name, user_prefs in profiles.items():
-        recommendations = recommend_songs(user_prefs, songs, k=5)
+        try:
+            recommendations = recommend_songs(user_prefs, songs, k=5)
+        except Exception as e:
+            logger.exception(f"Failed to get recommendations for profile '{profile_name}': {e}")
+            recommendations = []
+
+        # Detect and log semantic fallback reasons if present in any explanation
+        fallback_notes = []
+        for rec in recommendations:
+            # rec is (song, score, explanation)
+            if len(rec) >= 3 and rec[2]:
+                explanation = rec[2]
+                if "Semantic fallback" in explanation:
+                    # Extract the fallback portion (before the main 'Recommended because' text)
+                    try:
+                        fallback_part = explanation.split('. Recommended because')[0]
+                    except Exception:
+                        fallback_part = explanation
+                    fallback_notes.append(fallback_part)
+
+        if fallback_notes:
+            # Log unique fallback reasons for observability
+            for note in set(fallback_notes):
+                logger.info(f"Fallback applied for '{profile_name}': {note}")
+
         print_recommendations_table(profile_name, user_prefs, recommendations)
         
         # Collect stats for summary

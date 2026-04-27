@@ -1,3 +1,7 @@
 pandas
 pytest
 streamlit
+plotly
+sentence-transformers
+anthropic
+python-dotenv
