@@ -119,3 +119,4 @@ Throughout this project, I collaborated with GitHub Copilot.
 
 *   **Flawed Suggestion**: Initially, when trying to resolve the `sentence-transformers` import error, Copilot suggested installing the package globally using `pip` and `pip3`. This was incorrect because the project is set up with a specific Python virtual environment (`.venv`). The correct solution, which I had to implement, was to use the virtual environment's Python interpreter to install the package (`.venv/bin/python -m pip install ...`). This instance served as a crucial reminder that while AI can write excellent code, it doesn't always have the full context of the development environment, and human expertise is required to guide its suggestions.
 
+Link to Demo https://www.loom.com/share/af66012a5d1044c3b74730e4696e13cf
